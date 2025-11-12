@@ -9,12 +9,17 @@ import open3d as o3d
 import sys
 
 sys.path.append("..")
-from data.load_raw_data import load_real_ply_with_labels
+sys.path.append("D:\\DevPython\\PlantSegNet\\")
+sys.path.append("D:\\DevPython\\PlantSegNet\\data\\")
+
+from data.load_raw_data import load_real_ply_with_labels_smlm
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics
-from data.utils import create_ply_pcd_from_points_with_labels
+from data.utils import create_csv_smlm
 
 from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 
 
 def get_args():
@@ -97,7 +102,7 @@ def load_data_directory(path):
 
     for p in os.listdir(path):
         file_path = os.path.join(path, p)
-        points, instance_labels, semantic_labels = load_real_ply_with_labels(file_path)
+        points, instance_labels, semantic_labels = load_real_ply_with_labels_smlm(file_path)
         instance_points = points[semantic_labels == 1]
         instance_labels = instance_labels[semantic_labels == 1]
         data.append(instance_points)
@@ -127,7 +132,7 @@ def load_data_directory(path):
 def get_final_clusters(preds, DBSCAN_eps=1, DBSCAN_min_samples=10):
     try:
         preds = preds.cpu().detach().numpy().squeeze()
-        clustering = DBSCAN(eps=DBSCAN_eps, min_samples=DBSCAN_min_samples).fit(preds)
+        clustering = DBSCAN(eps=DBSCAN_eps, min_samples=int(DBSCAN_min_samples)).fit(preds)
         final_clusters = clustering.labels_
         return final_clusters
     except Exception as e:
@@ -135,8 +140,8 @@ def get_final_clusters(preds, DBSCAN_eps=1, DBSCAN_min_samples=10):
         return None
 
 
-def run_inference(model, data, label, best_params):
-    data = torch.from_numpy(data).type(torch.DoubleTensor)
+def run_inference(output_dir, model, data, label, best_params):
+    data = torch.from_numpy(data).type(torch.FloatTensor)
     label = torch.Tensor(label).float().squeeze().cpu()
     model = model.cpu()
     model.DGCNN_feature_space.device = "cpu"
@@ -159,17 +164,45 @@ def run_inference(model, data, label, best_params):
     clusterbased_average_recalls = []
 
     final_predictions = []
+    preds_before_clustering = []
 
     for i in range(data.shape[0]):
         # if i == 10:
         #     break
         preds = model(data[i : i + 1])
+
+        pca = PCA(n_components=3)
+        preds_np = preds.detach().numpy()
+        preds_np_2D = preds_np.squeeze()
+        pca_res = pca.fit_transform(preds_np_2D)
+        labels_np = label[i].detach().numpy().astype(int)
+        colors = np.random.rand(np.max(labels_np), 3)
+        _, idx, inverse_idx = np.unique(labels_np, return_index=True, return_inverse=True)
+        '''result = colors[idx.argsort()[inverse_idx]]
+        if pca_res.shape[1] == 2:
+            plt.scatter(pca_res[:, 0], pca_res[:, 1], c= result, edgecolors='none', s=5, alpha=None, linewidths=None)
+        elif pca_res.shape[1] == 3:
+            fig = plt.figure()
+            ax = fig.add_subplot(projection='3d')
+            ax.scatter(pca_res[:, 0], pca_res[:, 1], pca_res[:, 2], c= result, edgecolors='none', s=5, alpha=None, linewidths=None)
+        plt.title('PCA')
+        plt.xlabel('PCA1')
+        plt.ylabel('PCA2')
+        plt.show()'''
+
         pred_clusters = get_final_clusters(
             preds, best_params["eps"], best_params["minpoints"]
         )
         if pred_clusters is None:
             continue
 
+        pca_res = pca_res.transpose()
+        pca_res = np.vstack((pca_res, labels_np))
+        pca_res = np.vstack((pca_res, pred_clusters))
+        pca_res = pca_res.transpose()
+        np.savetxt(os.path.join(output_dir, str(i + 1) + "_pca.csv"), pca_res, delimiter=',', fmt='%s,%s,%s,%s,%s', header='x,y,z,id,prediction', comments='')
+
+        preds_before_clustering.append(preds.detach().numpy())
         final_predictions.append(pred_clusters)
         pred_clusters = torch.tensor(pred_clusters)
 
@@ -229,11 +262,11 @@ def run_inference(model, data, label, best_params):
         "clusterbased_average_recall": np.mean(clusterbased_average_recalls),
     }
 
-    best_example_ply = create_ply_pcd_from_points_with_labels(
+    best_example_ply = create_csv_smlm(
         data[best_acc_index].squeeze().numpy(),
         best_acc_preds.squeeze().numpy(),
     )
-    worst_example_ply = create_ply_pcd_from_points_with_labels(
+    worst_example_ply = create_csv_smlm(
         data[worst_acc_index].squeeze().numpy(),
         worst_acc_preds.squeeze().numpy(),
     )
@@ -257,8 +290,10 @@ def save_results(
     worst_example_ply,
     final_predictions,
 ):
-    o3d.io.write_point_cloud(os.path.join(path, "best_example.ply"), best_example_ply)
-    o3d.io.write_point_cloud(os.path.join(path, "worst_example.ply"), worst_example_ply)
+    #o3d.io.write_point_cloud(os.path.join(path, "best_example.ply"), best_example_ply)
+    #o3d.io.write_point_cloud(os.path.join(path, "worst_example.ply"), worst_example_ply)
+    np.savetxt(os.path.join(path, "best_example.csv"), best_example_ply, delimiter=',', fmt='%s,%s,%s', header='x,y,cluster_id', comments='')
+    np.savetxt(os.path.join(path, "worst_example.csv"), worst_example_ply, delimiter=',', fmt='%s,%s,%s', header='x,y,cluster_id', comments='')
     with open(os.path.join(path, "full_results.json"), "w") as f:
         json.dump(full_results_dic, f)
     with open(os.path.join(path, "mean_results.json"), "w") as f:
@@ -268,23 +303,34 @@ def save_results(
 
 
 def main():
-    args = get_args()
-    best_params = get_best_param(args.param)
+    #args = get_args()
+    
+    params_dict = {
+        "model": "D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/PlantSegNet/checkpoints/epoch=23-step=2400.ckpt",
+        "dataset": "SMLM",
+        "input": "D:/DevPython/PlantSegNet/datasets/npcs/test/",
+        "output": "D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/PlantSegNet/testing/",
+        "param": "D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/PlantSegNet/hparam_tuning_logs/DBSCAN_best_param.json",
+    }
 
-    output_dir = os.path.join(args.output, args.dataset)
+    best_params = get_best_param(params_dict["param"])
+
+    output_dir = os.path.join(params_dict["output"], params_dict["dataset"])
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    model = load_model("SorghumPartNetInstance", args.model)
+    model = load_model("SorghumPartNetInstance", params_dict["model"])
 
-    if args.dataset == "SPNS":
-        data, label = load_data_h5(args.input, "points", "labels")
-    elif args.dataset == "SPNR":
-        data, label = load_data_directory(args.input)
-    elif args.dataset == "PN":
-        data, label = load_data_h5(args.input, "pts", "label")
-    elif args.dataset == "TPN":
-        data, label = load_data_h5(args.input, "points", "primitive_id")
+    if params_dict["dataset"] == "SPNS":
+        data, label = load_data_h5(params_dict["input"], "points", "labels")
+    elif params_dict["dataset"] == "SPNR":
+        data, label = load_data_directory(params_dict["input"])
+    elif params_dict["dataset"] == "SMLM":
+        data, label = load_data_directory(params_dict["input"])
+    elif params_dict["dataset"] == "PN":
+        data, label = load_data_h5(params_dict["input"], "pts", "label")
+    elif params_dict["dataset"] == "TPN":
+        data, label = load_data_h5(params_dict["input"], "points", "primitive_id")
     else:
         print(":: Incorrect dataset name. ")
         return
@@ -300,7 +346,7 @@ def main():
         best_example_ply,
         worst_example_ply,
         final_predictions,
-    ) = run_inference(model, data, label, best_params)
+    ) = run_inference(output_dir, model, data, label, best_params)
     save_results(
         output_dir,
         full_results_dic,

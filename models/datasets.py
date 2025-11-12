@@ -4,6 +4,7 @@ import torch.utils.data as data
 import h5py
 import random
 import os
+from plyfile import PlyData, PlyElement
 
 
 class SorghumDataset(data.Dataset):
@@ -19,18 +20,22 @@ class SorghumDataset(data.Dataset):
 
     """
 
-    def __init__(self, h5_filename):
+    def __init__(self, folder):
         super().__init__()
-        self.h5_filename = h5_filename
-        self.length = -1
+        self.folder = folder
+        self.files = os.listdir(folder)
+        self.length = len(self.files)
 
     def __getitem__(self, index):
-        f = h5py.File(self.h5_filename, "r")
-        points = f["points"][index]
-        is_focal_plant = f["is_focal_plant"][index]
-        ground_index = f["ground_index"][index]
-        plant_index = f["plant_index"][index]
-        leaf_index = f["leaf_index"][index]
+        #index = index - 1
+        plydata = None
+        with open(self.folder + self.files[index], 'rb') as f:
+            plydata = PlyData.read(f)
+        points = np.asarray(np.array(plydata.elements[0].data).tolist())
+        leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist()).squeeze()
+        is_focal_plant = np.asarray(np.array(plydata.elements[1].data).tolist()).squeeze()
+        plant_index = np.asarray(np.array(plydata.elements[2].data).tolist()).squeeze()
+        ground_index = np.asarray(np.array(plydata.elements[3].data).tolist()).squeeze()
 
         # Converting arbitrary and non-contigiouse plant IDs to contigiouse list of indices
         plant_ind = list(set(list(plant_index)))
@@ -46,8 +51,6 @@ class SorghumDataset(data.Dataset):
         semantic_label[np.where((is_focal_plant == 0) & (ground_index == 1))] = 0
         semantic_label[np.where((is_focal_plant == 0) & (ground_index == 0))] = 2
 
-        f.close()
-
         return (
             torch.from_numpy(points).float(),
             torch.from_numpy(ground_index).float(),
@@ -57,18 +60,10 @@ class SorghumDataset(data.Dataset):
         )
 
     def __len__(self):
-        if self.length != -1:
-            return self.length
-        else:
-            f = h5py.File(self.h5_filename, "r")
-            self.length = len(f["names"])
-            f.close()
-            return self.length
+        return self.length
 
     def get_name(self, index):
-        f = h5py.File(self.h5_filename, "r")
-        name = f["names"][index].decode("utf-8")
-        return name
+        return self.files[index]
 
 
 class SorghumDatasetWithNormals(data.Dataset):

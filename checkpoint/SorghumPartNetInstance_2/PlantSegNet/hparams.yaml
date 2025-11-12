@@ -1,0 +1,39 @@
+batch_size: 1
+bn_momentum: 0.5
+bnm_decay: 0.5
+debug: false
+decay_step: 300000.0
+dgcnn_k: 15
+epochs: 200
+force: false
+hparams:
+  batch_size: 1
+  bn_momentum: 0.5
+  bnm_decay: 0.5
+  debug: false
+  decay_step: 300000.0
+  dgcnn_k: 15
+  epochs: 200
+  force: false
+  input_dim: 2
+  leaf_space_threshold: 0.5
+  lr: 0.001
+  lr_decay: 0.5
+  output: checkpoint/
+  patience: 10
+  test_data: D:\DevPython\PlantSegNet\datasets\npcs\test\
+  train_data: D:\DevPython\PlantSegNet\datasets\npcs\train\
+  val_data: D:\DevPython\PlantSegNet\datasets\npcs\val\
+  version: D:\DevPython\PlantSegNet
+  weight_decay: 0.0
+input_dim: 2
+leaf_space_threshold: 0.5
+lr: 0.001
+lr_decay: 0.5
+output: checkpoint/
+patience: 10
+test_data: D:\DevPython\PlantSegNet\datasets\npcs\test\
+train_data: D:\DevPython\PlantSegNet\datasets\npcs\train\
+val_data: D:\DevPython\PlantSegNet\datasets\npcs\val\
+version: D:\DevPython\PlantSegNet
+weight_decay: 0.0

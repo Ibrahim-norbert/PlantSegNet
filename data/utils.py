@@ -82,3 +82,9 @@ def create_ply_pcd_from_points_with_labels(points, labels, is_semantic=False):
 
     pcd.colors = o3d.utility.Vector3dVector(colors)
     return pcd
+
+def create_csv_smlm(points, labels):
+    array = points.transpose()
+    array = np.vstack((array, labels))
+    array = array.transpose()
+    return array

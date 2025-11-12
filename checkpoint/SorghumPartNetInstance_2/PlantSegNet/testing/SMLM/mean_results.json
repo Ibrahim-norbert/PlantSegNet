@@ -1,0 +1,1 @@
+{"pointwise_accuracy": 0.9829476773738861, "pointwise_precision": 0.34112513065338135, "pointwise_recall": 0.7854222655296326, "pointwise_f1": 0.4752759784460068, "clusterbased_mean_coverage": 0.5645726315733239, "clusterbased_average_precision": 0.6536386062288004, "clusterbased_average_recall": 0.580452469527871}

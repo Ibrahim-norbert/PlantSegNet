@@ -6,25 +6,41 @@ import numpy as np
 import torch.nn.functional as F
 
 
-def knn(x, k):
+def knn(x, k, device="cuda"):
     inner = -2 * torch.matmul(x.transpose(2, 1), x)
     xx = torch.sum(x**2, dim=1, keepdim=True)
     pairwise_distance = -xx - inner - xx.transpose(2, 1)
     idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
     return idx
 
+def rand_radius_or_knn(x, k, device="cuda", radius=0):
+    inner = -2 * torch.matmul(x.transpose(2, 1), x)
+    xx = torch.sum(x**2, dim=1, keepdim=True)
+    pairwise_distance = -xx - inner - xx.transpose(2, 1)
+    randVals = torch.rand(pairwise_distance.shape, device=device)
+    modified_distance = torch.where(pairwise_distance > radius, -randVals, pairwise_distance)#100*100
+    #Should be done in a better way, certainly possible in a one liner
+    test = modified_distance[0]
+    zeros = torch.zeros((pairwise_distance.shape[-1]), device=device)
+    test[range(pairwise_distance.shape[-1]), range(pairwise_distance.shape[-1])] = zeros
+    modified_distance[0] = test
+    #
+    idx = modified_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
+    return idx
 
-def get_graph_feature(x, k=20, idx=None, dim9=False, device_name="cuda"):
+
+def get_graph_feature(x, k=20, idx=None, dim9=False, device_name="cuda", radius=0.):
     batch_size = x.size(0)
     num_points = x.size(2)
+    
+    device = torch.device(device_name)
 
     x = x.view(batch_size, -1, num_points)
     if idx is None:
         if dim9 == False:
-            idx = knn(x, k=k)  # (batch_size, num_points, k)
+            idx = rand_radius_or_knn(x, k=k, device=device_name, radius=radius)  # (batch_size, num_points, k)
         else:
-            idx = knn(x[:, 6:], k=k)
-    device = torch.device(device_name)
+            idx = rand_radius_or_knn(x[:, 6:], k=k, device=device_name, radius=radius)
 
     idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
@@ -175,11 +191,11 @@ class DGCNNFeatureSpace(nn.Module):
             nn.LeakyReLU(negative_slope=0.2),
         )
 
-    def forward(self, x):
+    def forward(self, x, radius):
         x = x.transpose(1, 2)
 
         x = get_graph_feature(
-            x, k=self.k, device_name=self.device
+            x, k=self.k, device_name=self.device, radius=radius
         )  # (batch_size, 3, num_points) -> (batch_size, 3*2, num_points, k)
         x = self.conv1(
             x
@@ -189,7 +205,7 @@ class DGCNNFeatureSpace(nn.Module):
         ]  # (batch_size, 64, num_points, k) -> (batch_size, 64, num_points)
 
         x = get_graph_feature(
-            x1, k=self.k, device_name=self.device
+            x1, k=self.k, device_name=self.device, radius=radius
         )  # (batch_size, 64, num_points) -> (batch_size, 64*2, num_points, k)
         x = self.conv2(
             x
@@ -199,7 +215,7 @@ class DGCNNFeatureSpace(nn.Module):
         ]  # (batch_size, 64, num_points, k) -> (batch_size, 64, num_points)
 
         x = get_graph_feature(
-            x2, k=self.k, device_name=self.device
+            x2, k=self.k, device_name=self.device, radius=radius
         )  # (batch_size, 64, num_points) -> (batch_size, 64*2, num_points, k)
         x = self.conv3(
             x
@@ -209,7 +225,7 @@ class DGCNNFeatureSpace(nn.Module):
         ]  # (batch_size, 128, num_points, k) -> (batch_size, 128, num_points)
 
         x = get_graph_feature(
-            x3, k=self.k, device_name=self.device
+            x3, k=self.k, device_name=self.device, radius=radius
         )  # (batch_size, 128, num_points) -> (batch_size, 128*2, num_points, k)
         x = self.conv4(
             x

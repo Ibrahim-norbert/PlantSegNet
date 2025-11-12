@@ -8,8 +8,12 @@ import random
 import sys
 
 sys.path.append("..")
+sys.path.append("D:\\DevPython\\PlantSegNet\\")
+sys.path.append("D:\\DevPython\\PlantSegNet\\data\\")
+
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics
+from data.load_raw_data import load_real_ply_with_labels_smlm
 
 
 from sklearn.cluster import DBSCAN
@@ -66,6 +70,39 @@ def load_data_h5(path, point_key, label_key):
         data = np.array(f[point_key])
         label = np.array(f[label_key])
     return data, label
+
+def load_data_directory(path):
+    data = []
+    labels = []
+    min_shape = sys.maxsize
+
+    for p in os.listdir(path):
+        file_path = os.path.join(path, p)
+        points, instance_labels, semantic_labels = load_real_ply_with_labels_smlm(file_path)
+        instance_points = points[semantic_labels == 1]
+        instance_labels = instance_labels[semantic_labels == 1]
+        data.append(instance_points)
+        labels.append(instance_labels)
+        if instance_labels.shape[0] < min_shape:
+            min_shape = instance_labels.shape[0]
+
+    resized_data = []
+    resized_labels = []
+    for i, datum in enumerate(data):
+        label = labels[i]
+        downsample_indexes = random.sample(
+            np.arange(0, datum.shape[0]).tolist(),
+            min_shape,
+        )
+        datum = datum[downsample_indexes]
+        label = label[downsample_indexes]
+        resized_data.append(datum)
+        resized_labels.append(label)
+
+    resized_data = np.stack(resized_data)
+    resized_labels = np.stack(resized_labels)
+
+    return resized_data, resized_labels
 
 
 def get_final_clusters(preds, DBSCAN_eps=1, DBSCAN_min_samples=10):
@@ -168,21 +205,23 @@ def load_params_dict(path):
 
 
 def main():
-    args = get_args()
-    train_param_dict = load_params_dict(args.parameters)
+    #args = get_args()
+    #train_param_dict = load_params_dict(args.parameters)
 
-    input_dir = os.path.join(
-        "/speedy/ariyanzarei/sorghum_segmentation/results/training_logs",
-        train_param_dict["model_name"],
-        train_param_dict["dataset"],
-    )
+    train_param_dict = {
+        "experiment_id": "PlantSegNet",
+        "model_name": "SorghumPartNetInstance",
+        "input_dim": 2,
+        "val_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\val\\",
+        'version': "D:\\DevPython\\PlantSegNet",
+        "dataset": "SMLM",
+        "samples": 25,
+        "iterations": 100,
+    }
 
-    output_dir = os.path.join(
-        "/speedy/ariyanzarei/sorghum_segmentation/results/hparam_tuning_logs",
-        train_param_dict["model_name"],
-        train_param_dict["dataset"],
-        train_param_dict["experiment_id"],
-    )
+    input_dir = "D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/"
+
+    output_dir = "D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/PlantSegNet/hparam_tuning_logs/"
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
@@ -205,20 +244,22 @@ def main():
         data, label = load_data_h5(
             train_param_dict["val_data"], "points", "primitive_id"
         )
+    elif train_param_dict["dataset"] == "SMLM":
+        data, label = load_data_directory(train_param_dict["val_data"])
     else:
         print(":: Incorrect dataset name. ")
         return
 
     sample_indices = random.sample(
         np.arange(0, data.shape[0]).tolist(),
-        min(args.samples, data.shape[0]),
+        min(train_param_dict["samples"], data.shape[0]),
     )
 
     data = data[sample_indices]
     label = label[sample_indices]
 
     device = "cpu"
-    data = torch.Tensor(data).double().to(torch.device(device))
+    data = torch.Tensor(data).float().to(torch.device(device))
     label = torch.Tensor(label).float().squeeze().to(torch.device(device))
     model = model.to(torch.device(device))
     model.DGCNN_feature_space.device = device
@@ -228,13 +269,13 @@ def main():
     bestParams = fmin(
         fn=objective_function,
         space=[
-            hp.uniform("eps", 0.05, 5),
-            scope.int(hp.quniform("minpoints", 3, 20, q=1)),
+            hp.uniform("eps", 0.05, 10),
+            scope.int(hp.quniform("minpoints", 3, 125, q=1)),
             predictions,
             label,
         ],
         algo=tpe.suggest,
-        max_evals=args.iterations,
+        max_evals=train_param_dict["iterations"],
         trials=trials,
     )
 

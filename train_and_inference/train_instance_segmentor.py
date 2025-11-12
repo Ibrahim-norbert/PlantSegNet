@@ -6,7 +6,11 @@ import shutil
 import sys
 
 sys.path.append("..")
-from models.nn_models import *
+sys.path.append("D:\\DevPython\\PlantSegNet\\")
+sys.path.append("D:\\DevPython\\PlantSegNet\\data\\")
+
+#from models.nn_models import *
+from models.nn_models import SorghumPartNetInstance
 
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
@@ -61,24 +65,48 @@ def get_hparam(path):
 
 
 def train():
-    args = get_args()
-    hparams = get_hparam(args.hparam)
-    version_name = os.path.basename(os.path.normpath(args.hparam)).replace(".json", "")
+    #args = get_args()
+    #hparams = get_hparam(args.hparam)
+
+    hparams = {
+        "epochs": 200,
+        "dgcnn_k": 100,
+        "input_dim": 2,
+        "batch_size": 1,
+        "train_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\train\\",
+        "val_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\val\\",
+        "test_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\test\\",
+        "patience": 20,
+        'batch_size': 1,
+        'lr': 0.001,
+        'weight_decay': 0.0,
+        'lr_decay': 0.5,
+        'decay_step': 3e5,
+        'bn_momentum': 0.5,
+        'bnm_decay': 0.5,
+        'output': 'checkpoint/',
+        'force': True,
+        'debug': False,
+        'version': "D:\\DevPython\\PlantSegNet",
+        "leaf_space_threshold": 0.5,
+        "debug_feature_space": True,
+    }
+    version_name = os.path.basename(os.path.normpath(hparams["version"])).replace(".json", "")
 
     if "dataset" in hparams and (
         hparams["dataset"] == "TPN" or hparams["dataset"] == "PN"
     ):
         chkpt_path = os.path.join(
-            args.output, hparams["dataset"], "SorghumPartNetInstance"
+            hparams["output"], hparams["dataset"], "SorghumPartNetInstance"
         )
     else:
-        chkpt_path = os.path.join(args.output, "SorghumPartNetInstance")
+        chkpt_path = os.path.join(hparams["output"], "SorghumPartNetInstance")
 
     if not os.path.exists(chkpt_path):
         os.makedirs(chkpt_path)
 
     if os.path.exists(os.path.join(chkpt_path, version_name)):
-        if args.force:
+        if hparams["force"]:
             shutil.rmtree(os.path.join(chkpt_path, version_name))
         else:
             print(
@@ -100,10 +128,10 @@ def train():
         monitor="val_leaf_loss", mode="min", patience=hparams["patience"]
     )
 
-    if args.debug:
+    if hparams["debug"]:
         trainer = pl.Trainer(
-            accelerator="ddp",
-            gpus=hparams["gpus"],
+            accelerator="gpu",
+            devices="auto",
             max_epochs=hparams["epochs"],
             callbacks=[checkpoint_callback, early_stopping_callback],
             logger=tensorboard_callback,
@@ -112,8 +140,8 @@ def train():
     else:
         trainer = pl.Trainer(
             default_root_dir=chkpt_path,
-            accelerator="ddp",
-            gpus=hparams["gpus"],
+            accelerator="gpu",
+            devices="auto",
             max_epochs=hparams["epochs"],
             callbacks=[checkpoint_callback, early_stopping_callback],
             logger=tensorboard_callback,
@@ -125,3 +153,5 @@ def train():
 
 if __name__ == "__main__":
     train()
+
+#python train_and_inference/train_instance_segmentor.py --hparam parameters.json --output checkpoint/

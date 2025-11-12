@@ -3,7 +3,9 @@ import numpy as np
 import random
 from plyfile import PlyData, PlyElement
 from data.utils import *
+import sys
 
+max_size_int = sys.maxsize * 2 + 1
 
 def load_pcd_plyfile(path, index_to_use="leaf_index", down_sample_n=8000):
     try:
@@ -222,3 +224,89 @@ def load_real_ply_with_labels(path, point_threshold=100000):
         leaf_index = leaf_index[downsample_indexes]
         semantic_index = semantic_index[downsample_indexes]
     return points, leaf_index, semantic_index
+
+def load_real_ply_with_labels_smlm(path, point_threshold=max_size_int):
+    with open(path, "rb") as f:
+        plydata = PlyData.read(f)
+        points = np.asarray(np.array(plydata.elements[0].data).tolist())
+        leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist()).squeeze()
+        semantic_index = np.asarray(
+            np.array(plydata.elements[2].data).tolist()
+        ).squeeze()
+    if points.shape[0] > point_threshold:
+        downsample_indexes = random.sample(
+            np.arange(0, points.shape[0]).tolist(),
+            min(point_threshold, points.shape[0]),
+        )
+        points = points[downsample_indexes]
+        leaf_index = leaf_index[downsample_indexes]
+        semantic_index = semantic_index[downsample_indexes]
+    return points, leaf_index, semantic_index
+
+def load_csv_with_labels(path):
+    data = np.loadtxt(path, delimiter=',', skiprows=1)
+    points, is_focal_plant, ground_index, plant_index, leaf_index = [], [], [], [], []
+    for row in data:
+        points.append(np.array([row[1], row[2]]))
+        is_focal_plant.append(0 if row[5] == 0 else 1)
+        ground_index.append(1 if row[5] == 0 else 0)
+        plant_index.append(0 if row[5] == 0 else 1)
+        leaf_index.append(row[6])
+    
+    points = np.asarray(np.array(points).tolist())
+    is_focal_plant = np.asarray(np.array(is_focal_plant).tolist()).squeeze()
+    ground_index = np.asarray(np.array(ground_index).tolist()).squeeze()
+    plant_index = np.asarray(np.array(plant_index).tolist()).squeeze()
+    leaf_index = np.asarray(np.array(leaf_index).tolist()).squeeze()
+
+    return {
+            "points": points,
+            "is_focal_plant": is_focal_plant,
+            "leaf_index": leaf_index,
+            "plant_index": plant_index,
+            "ground_index": ground_index,
+        }
+
+def load_smlm_ply_with_labels(path, down_sample_n=None):
+    try:
+        with open(path, "rb") as f:
+            plydata = PlyData.read(f)
+            points = np.asarray(np.array(plydata.elements[0].data).tolist())
+            points_full = np.asarray(np.array(plydata.elements[0].data).tolist())
+
+            if down_sample_n is None:
+                down_sample_n = points_full.shape[0]
+
+            downsample_indexes = random.sample(
+                np.arange(0, points.shape[0]).tolist(),
+                min(down_sample_n, points.shape[0]),
+            )
+            points = points[downsample_indexes]
+
+            leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist())[
+                downsample_indexes
+            ].squeeze()
+
+            is_focal_plant = np.asarray(np.array(plydata.elements[1].data).tolist())[
+                downsample_indexes
+            ].squeeze()
+
+        plant_index = np.asarray(np.array(plydata.elements[2].data).tolist())[
+                    downsample_indexes
+                ].squeeze()
+        ground_index = np.asarray(np.array(plydata.elements[3].data).tolist())[
+                    downsample_indexes
+                ].squeeze()
+
+        return {
+            "points_full": points_full,
+            "points": points,
+            "is_focal_plant": is_focal_plant,
+            "leaf_index": leaf_index,
+            "plant_index": plant_index,
+            "ground_index": ground_index,
+        }
+
+    except Exception as e:
+        print(e)
+        return None
