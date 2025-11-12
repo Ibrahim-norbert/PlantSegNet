@@ -244,26 +244,30 @@ def load_real_ply_with_labels_smlm(path, point_threshold=max_size_int):
 def load_csv_with_labels(path):
     data = np.loadtxt(path, delimiter=',', skiprows=1)
     points, is_focal_plant, ground_index, plant_index, leaf_index = [], [], [], [], []
-    for row in data:
-        points.append(np.array([row[1], row[2]]))
-        is_focal_plant.append(0 if row[5] == 0 else 1)
-        ground_index.append(1 if row[5] == 0 else 0)
-        plant_index.append(0 if row[5] == 0 else 1)
-        leaf_index.append(row[6])
+
+
+    if data.shape[-1] < 7:
+        for row in data:
+            print(row)
+            points.append(np.array([row[0], row[1]]))
+            leaf_index.append(row[-1])
+    else:
+        for row in data:
+            points.append(np.array([row[1], row[2]]))
+            is_focal_plant.append(0 if row[5] == 0 else 1)
+            ground_index.append(1 if row[5] == 0 else 0)
+            plant_index.append(0 if row[5] == 0 else 1)
+            leaf_index.append(row[6])
     
-    points = np.asarray(np.array(points).tolist())
-    is_focal_plant = np.asarray(np.array(is_focal_plant).tolist()).squeeze()
-    ground_index = np.asarray(np.array(ground_index).tolist()).squeeze()
-    plant_index = np.asarray(np.array(plant_index).tolist()).squeeze()
+        is_focal_plant = np.asarray(np.array(is_focal_plant).tolist()).squeeze()
+        ground_index = np.asarray(np.array(ground_index).tolist()).squeeze()
+        plant_index = np.asarray(np.array(plant_index).tolist()).squeeze()
+            
+    points = np.asarray(np.array(points).tolist()).squeeze()
     leaf_index = np.asarray(np.array(leaf_index).tolist()).squeeze()
 
-    return {
-            "points": points,
-            "is_focal_plant": is_focal_plant,
-            "leaf_index": leaf_index,
-            "plant_index": plant_index,
-            "ground_index": ground_index,
-        }
+
+    return points, leaf_index
 
 def load_smlm_ply_with_labels(path, down_sample_n=None):
     try:
