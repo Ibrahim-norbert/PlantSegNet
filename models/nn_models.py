@@ -34,7 +34,7 @@ class SorghumPartNetInstance(pl.LightningModule):
         ----------
         hparams: hyper parameters
         """
-        super(SorghumPartNetInstance, self).__init__()
+        super().__init__()
 
         self.is_debug = debug
         self.hparams.update(hparams)

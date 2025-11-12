@@ -3,7 +3,7 @@ import torch.optim.lr_scheduler as lr_sched
 import torch
 import numpy as np
 from torchmetrics import Accuracy
-from torchmetrics.functional import f1, precision_recall
+#from torchmetrics.functional import f1, precision_recall
 from sklearn.cluster import DBSCAN
 
 
@@ -205,13 +205,29 @@ class LeafMetrics(nn.Module):
             .to(torch.device(self.device_name))
         )
 
-        acc_func = Accuracy().to(torch.device(self.device_name))
+        if cluster_pred.shape.__len__() > 2:
+            if cluster_pred.shape != cluster_gt.shape:
+                task = "MULTICLASS"
+                num_classes = np.unique(cluster_gt).__len__()
+                num_labels = None
+            else:
+                task = "MULTILABEL"
+                num_classes = None
+                num_labels = np.unique(cluster_gt).__len__()
+        else:
+            task = "MULTICLASS"
+            num_classes = np.unique(cluster_gt).__len__()
+            num_labels = None
+                    
+
+        acc_func = Accuracy(task=task, num_classes=num_classes, num_labels=num_labels).to(torch.device(self.device_name))
 
         Acc = acc_func(cluster_pred, cluster_gt)
-        Precision, Recall = precision_recall(cluster_pred, cluster_gt, multiclass=False)
-        F = f1(cluster_pred, cluster_gt, multiclass=False)
+        # Precision, Recall = precision_recall(cluster_pred, cluster_gt, multiclass=False)
+        # F = f1(cluster_pred, cluster_gt, multiclass=False)
 
-        return Acc.item(), Precision.item(), Recall.item(), F.item()
+        return Acc.item() 
+    # Precision.item(), Recall.item(), F.item()
 
 
 class LeafMetricsTraining(nn.Module):

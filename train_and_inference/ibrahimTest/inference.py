@@ -10,14 +10,16 @@ import sys
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-from ProjectRoot import change_wd_to_project_root
-change_wd_to_project_root()
-
+# from ProjectRoot import change_wd_to_project_root
+# change_wd_to_project_root()
+sys.path.append(r"C:\Users\imansaray\OneDrive\Desktop\Career\SuperRes PhD\.repo\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
+sys.path.append(r"C:\Users\imansaray\OneDrive\Desktop\Career\SuperRes PhD\.repo\SuperRes-Imperial-CNRS")
 from data.load_raw_data import load_real_ply_with_labels_smlm
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics
 from data.utils import create_csv_smlm
 from train_and_inference.test_set_instance_inference import save_results, run_inference 
+import yaml
 
 
 
@@ -26,8 +28,13 @@ class InferenceEngine:
         self.params_dict = params_dict
         self.set_parameters()
         
-        
-        
+    
+    @staticmethod
+    def get_hparam(path):
+        with open(path, "r") as f:
+            hparams = yaml.safe_load(f)
+        return hparams
+
     def set_parameters(self):
         self.best_params = self.get_best_param(self.params_dict["param"])
         self.output_dir = self._setup_output_dir()
@@ -46,7 +53,12 @@ class InferenceEngine:
             return json.load(f)
 
     def load_model(self, path):
-        model = eval(self.params_dict.get("model", "SorghumPartNetInstance")).load_from_checkpoint(path)
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Checkpoint not found: {path}")
+        #hparams = self.get_hparam(r"C:\Users\imansaray\OneDrive\Desktop\Career\SuperRes PhD\.repo\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet\checkpoint\SorghumPartNetInstance\PlantSegNet\hparams.yaml")
+        model = SorghumPartNetInstance
+        assert issubclass(model, torch.nn.Module), f"Model {model} is not a subclass of torch.nn.Module"
+        model = model.load_from_checkpoint(path)
         model.eval()
         return model
 
@@ -97,6 +109,10 @@ class InferenceEngine:
         sys.stdout.flush()
         save_results(
         self.output_dir,*run_inference(self.output_dir, self.model, data, label, self.best_params))
+        print(
+        f":: Completed the inference. Results are saved in {self.output_dir}")
+        sys.stdout.flush()
+
     
 
 
@@ -104,13 +120,13 @@ class InferenceEngine:
 
 def main():
     #args = get_args()
-    cwd = r"C:\Users\ibrah\OneDrive\Desktop\Career\SuperRes PhD\.repo\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet"
+    cwd = r"C:\Users\imansaray\OneDrive\Desktop\Career\SuperRes PhD\.repo\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet"
     params_dict = {
-        "model": os.path.join(cwd,"checkpoint/SorghumPartNetInstance/PlantSegNet/checkpoints/epoch=23-step=2400.ckpt"),
+        "model": os.path.join(cwd, r"checkpoint\SorghumPartNetInstance\PlantSegNet\checkpoints\epoch_25.ckpt"),
         "dataset": "SMLM",
-        "input": "datasets/npcs/test/",
-        "output": os.path.join(cwd,"checkpoint/SorghumPartNetInstance/PlantSegNet/testing/"),
-        "param": os.path.join(cwd,"checkpoint/SorghumPartNetInstance/PlantSegNet/hparam_tuning_logs/DBSCAN_best_param.json"),
+        "input": os.path.join(cwd, r"datasets/npcs/test/"),
+        "output": os.path.join(cwd, r"checkpoint\SorghumPartNetInstance\PlantSegNet\testing"),
+        "param": os.path.join(cwd, r"checkpoint\SorghumPartNetInstance\PlantSegNet\hparam_tuning_logs\DBSCAN_best_param.json"),
     }
 
     """

@@ -84,83 +84,81 @@ def load_pcd_plyfile(path, index_to_use="leaf_index", down_sample_n=8000):
 
 
 def load_pcd_plyfile_new_approach(path, is_instance, down_sample_n=8000):
-    try:
-        with open(path, "rb") as f:
-            plydata = PlyData.read(f)
-            points = np.asarray(np.array(plydata.elements[0].data).tolist())
-            points_full = np.asarray(np.array(plydata.elements[0].data).tolist())
-            leaf_index = np.asarray(np.array(plydata.elements[2].data).tolist())
-            ground_index = np.asarray(np.array(plydata.elements[6].data).tolist())
-            is_focal_plant = np.asarray(np.array(plydata.elements[4].data).tolist())
 
-            if down_sample_n is None:
-                down_sample_n = points_full.shape[0]
+    with open(path, "rb") as f:
+        plydata = PlyData.read(f)
+        points = np.asarray(np.array(plydata.elements[0].data).tolist())
+        points_full = np.asarray(np.array(plydata.elements[0].data).tolist())
+        leaf_index = np.asarray(np.array(plydata.elements[2].data).tolist())
+        ground_index = np.asarray(np.array(plydata.elements[6].data).tolist())
+        is_focal_plant = np.asarray(np.array(plydata.elements[4].data).tolist())
 
-            if not is_instance:
-                downsample_indexes = random.sample(
-                    np.arange(0, points.shape[0]).tolist(),
-                    min(down_sample_n, points.shape[0]),
-                )
+        if down_sample_n is None:
+            down_sample_n = points_full.shape[0]
 
-                label_full = np.zeros(is_focal_plant.shape)
-                label_full[(is_focal_plant == 0) & (ground_index == 0)] = 2
-                label_full[(is_focal_plant == 1) & (ground_index == 0)] = 1
+        if not is_instance:
+            downsample_indexes = random.sample(
+                np.arange(0, points.shape[0]).tolist(),
+                min(down_sample_n, points.shape[0]),
+            )
 
-                points = points[downsample_indexes]
-                is_focal_plant = is_focal_plant[downsample_indexes].squeeze()
-                ground_index = ground_index[downsample_indexes].squeeze()
+            label_full = np.zeros(is_focal_plant.shape)
+            label_full[(is_focal_plant == 0) & (ground_index == 0)] = 2
+            label_full[(is_focal_plant == 1) & (ground_index == 0)] = 1
 
-                label = np.zeros(is_focal_plant.shape)
-                label[(is_focal_plant == 0) & (ground_index == 0)] = 2
-                label[(is_focal_plant == 1) & (ground_index == 0)] = 1
+            points = points[downsample_indexes]
+            is_focal_plant = is_focal_plant[downsample_indexes].squeeze()
+            ground_index = ground_index[downsample_indexes].squeeze()
 
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(points)
-                pcd.estimate_normals(
-                    search_param=o3d.geometry.KDTreeSearchParamRadius(0.05)
-                )
-                normals = np.asarray(pcd.normals)
+            label = np.zeros(is_focal_plant.shape)
+            label[(is_focal_plant == 0) & (ground_index == 0)] = 2
+            label[(is_focal_plant == 1) & (ground_index == 0)] = 1
 
-            else:
-                is_focal_plant = is_focal_plant.squeeze()
-                ground_index = ground_index.squeeze()
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.estimate_normals(
+                search_param=o3d.geometry.KDTreeSearchParamRadius(0.05)
+            )
+            normals = np.asarray(pcd.normals)
 
-                points = points[(is_focal_plant == 1) & (ground_index == 0), :]
-                points_full = points_full[
-                    (is_focal_plant == 1) & (ground_index == 0), :
-                ]
-                label = leaf_index[(is_focal_plant == 1) & (ground_index == 0)]
+        else:
+            is_focal_plant = is_focal_plant.squeeze()
+            ground_index = ground_index.squeeze()
 
-                points_shape = points.shape[0]
+            points = points[(is_focal_plant == 1) & (ground_index == 0), :]
+            points_full = points_full[
+                (is_focal_plant == 1) & (ground_index == 0), :
+            ]
+            label = leaf_index[(is_focal_plant == 1) & (ground_index == 0)]
 
-                downsample_indexes = np.random.choice(
-                    np.arange(0, points.shape[0]).tolist(),
-                    down_sample_n,
-                    replace=(True if points_shape < down_sample_n else False),
-                )
+            points_shape = points.shape[0]
 
-                label_full = label
-                points = points[downsample_indexes]
-                label = label[downsample_indexes]
+            downsample_indexes = np.random.choice(
+                np.arange(0, points.shape[0]).tolist(),
+                down_sample_n,
+                replace=(True if points_shape < down_sample_n else False),
+            )
 
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(points)
-                pcd.estimate_normals(
-                    search_param=o3d.geometry.KDTreeSearchParamRadius(0.05)
-                )
-                normals = np.asarray(pcd.normals)
+            label_full = label
+            points = points[downsample_indexes]
+            label = label[downsample_indexes]
 
-        return {
-            "points_full": points_full,
-            "points": points,
-            "labels": label,
-            "labels_full": label_full,
-            "normals": normals,
-        }
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(points)
+            pcd.estimate_normals(
+                search_param=o3d.geometry.KDTreeSearchParamRadius(0.05)
+            )
+            normals = np.asarray(pcd.normals)
 
-    except Exception as e:
-        print(e)
-        return None
+    return {
+        "points_full": points_full,
+        "points": points,
+        "labels": label,
+        "labels_full": label_full,
+        "normals": normals,
+    }
+
+
 
 
 def load_ply_file_points(path, n_points=8000, full_points=50000):

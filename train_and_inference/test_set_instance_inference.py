@@ -206,15 +206,15 @@ def run_inference(output_dir, model, data, label, best_params):
         final_predictions.append(pred_clusters)
         pred_clusters = torch.tensor(pred_clusters)
 
-        acc, precison, recall, f1 = pointwise_metric_calculator(
+        acc = pointwise_metric_calculator(
             pred_clusters.unsqueeze(0).unsqueeze(-1),
             label[i].unsqueeze(0).unsqueeze(-1),
         )
 
         pointwise_accuracies.append(acc)
-        pointwise_precisions.append(precison)
-        pointwise_recalls.append(recall)
-        pointwise_f1s.append(f1)
+        # pointwise_precisions.append(precison)
+        # pointwise_recalls.append(recall)
+        # pointwise_f1s.append(f1)
 
         if acc > best_acc_value:
             best_acc_value = acc
@@ -244,9 +244,6 @@ def run_inference(output_dir, model, data, label, best_params):
 
     full_results_dic = {
         "pointwise_accuracies": pointwise_accuracies,
-        "pointwise_precisions": pointwise_precisions,
-        "pointwise_recalls": pointwise_recalls,
-        "pointwise_f1s": pointwise_f1s,
         "clusterbased_mean_coverages": clusterbased_mean_coverages,
         "clusterbased_average_precisions": clusterbased_average_precisions,
         "clusterbased_average_recalls": clusterbased_average_recalls,
