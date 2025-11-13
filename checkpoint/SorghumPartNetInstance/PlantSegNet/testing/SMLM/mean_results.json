@@ -1,1 +1,1 @@
-{"pointwise_accuracy": 0.9871386289596558, "pointwise_precision": NaN, "pointwise_recall": NaN, "pointwise_f1": NaN, "clusterbased_mean_coverage": 0.7050498072579225, "clusterbased_average_precision": 0.9180574555403557, "clusterbased_average_recall": 0.7481625986752563}
+{"pointwise_accuracy": 0.99212446808815, "pointwise_precision": NaN, "pointwise_recall": NaN, "pointwise_f1": NaN, "clusterbased_mean_coverage": 0.7162101952059503, "clusterbased_average_precision": 0.9089538798841126, "clusterbased_average_recall": 0.7503124584496743}

@@ -32,7 +32,6 @@ class matplotlibComplexPlot:
     
     def scatter(ax, points: dict[str: np.ndarray], **kwargs):
         # For KWARGS, : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.html#matplotlib.axes.Axes
-        print(kwargs)
         ax.scatter(**points, **kwargs)
         ax.set_facecolor("white")
 
@@ -52,7 +51,8 @@ class matplotlibComplexPlot:
 
 
 
-    def square_multi_subplot(data:list[np.ndarray], subplot: str, labels :Union[List[int], List[np.ndarray]]=None, save_path=None,
+    def square_multi_subplot(data:list[np.ndarray], subplot: str, labels :Union[List[int], List[np.ndarray]]=None, titles:List[str]=None,
+                              save_path=None,
                         save_dir=None, subplots_kwargs: Union[dict, list[dict]] = None, **kwargs):
 
 
@@ -85,7 +85,7 @@ class matplotlibComplexPlot:
 
         fig, axes = plt.subplots(rows_per_plot, images_per_row,
                                  figsize=fig_size)
-        fig.patch.set_facecolor('black')  # Set figure background
+        #fig.patch.set_facecolor('black')  # Set figure background
 
 
 
@@ -97,10 +97,12 @@ class matplotlibComplexPlot:
                 else:
                     ax = axes[i, j]
                 img_index = i * images_per_row + j
-          
+
+                ax.set_title(titles[img_index] if titles is not None else None)
                 matplotlibComplexPlot.__getattribute__(matplotlibComplexPlot, subplot)(ax, data[img_index],
                                             label = labels[img_index] if labels is not None else None,
                                             **subplots_kwargs[img_index] if subplots_kwargs is not None and isinstance(subplots_kwargs, list) else subplots_kwargs)
+                
 
 
 

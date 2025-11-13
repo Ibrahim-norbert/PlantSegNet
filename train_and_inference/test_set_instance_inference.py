@@ -143,6 +143,8 @@ def get_final_clusters(preds, DBSCAN_eps=1, DBSCAN_min_samples=10):
 def run_inference(output_dir, model, data, label, best_params):
     data = torch.from_numpy(data).type(torch.FloatTensor)
     label = torch.Tensor(label).float().squeeze().cpu()
+
+    print(f"We have the following the following input and output shapes: {data.size()} - {label.size()}")
     model = model.cpu()
     model.DGCNN_feature_space.device = "cpu"
     pointwise_metric_calculator = LeafMetrics()
