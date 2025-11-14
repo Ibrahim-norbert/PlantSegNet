@@ -4,6 +4,7 @@ import h5py
 import numpy as np
 import random
 import json
+from numpy.typing import NDArray
 import torch
 import open3d as o3d
 import sys
@@ -11,6 +12,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from pathlib import  Path
+from typing import Any
 # from ProjectRoot import change_wd_to_project_root
 # change_wd_to_project_root()
 sys.path.append(r"C:\Users\imansaray\Desktop\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
@@ -26,7 +28,7 @@ import glob
 
 
 class InferenceEngine:
-    def __init__(self, params_dict):
+    def __init__(self, params_dict) -> None:
         self.params_dict = params_dict
         self.set_parameters()
         
@@ -37,7 +39,7 @@ class InferenceEngine:
             hparams = yaml.safe_load(f)
         return hparams
 
-    def set_parameters(self):
+    def set_parameters(self) -> None:
         self.best_params = self.get_best_param(self.params_dict["param"])
         self.output_dir = self._setup_output_dir()
         self.model = self.load_model(self.params_dict["model"])
@@ -54,29 +56,29 @@ class InferenceEngine:
         with open(path, "r") as f:
             return json.load(f)
 
-    def load_model(self, path):
+    def load_model(self, path) -> SorghumPartNetInstance:
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Checkpoint not found: {path}")
-        #hparams = self.get_hparam(r"C:\Users\imansaray\OneDrive\Desktop\Career\SuperRes PhD\.repo\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet\checkpoint\SorghumPartNetInstance\PlantSegNet\hparams.yaml")
+        #hparams = self.get_hparam(r"C:\Users\imansaray\OneDrive\Desktop\Career\SuperRes PhD\.repo\
+        # SuperRes-Imperial-CNRS\DummyModels\PlantSegNet\checkpoint\SorghumPartNetInstance\PlantSegNet\hparams.yaml")
         model = SorghumPartNetInstance
         assert issubclass(model, torch.nn.Module), f"Model {model} is not a subclass of torch.nn.Module"
         model = model.load_from_checkpoint(path)
         model.eval()
         return model
 
-    def load_data_h5(self, path, point_key, label_key):
+    def load_data_h5(self, path, point_key, label_key) -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
         with h5py.File(path) as f:
             data = np.array(f[point_key])
             label = np.array(f[label_key])
         return data, label
 
-    def load_data_directory(self, path, extension=".csv"):
+    def load_data_directory(self, path: str, extension : str =".csv") -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
         data = []
         labels = []
         min_shape = sys.maxsize
 
         paths = glob.glob(os.path.join(path, f"*{extension}"))
-
 
         for file_path in paths:
 
@@ -85,7 +87,7 @@ class InferenceEngine:
                 instance_points = points[semantic_labels == 1]
                 instance_labels = instance_labels[semantic_labels == 1]
             elif extension == ".csv":
-                output : tuple[np.ndarray[float], int] = load_csv_with_labels(file_path)
+                output : tuple[np.ndarray[Any, np.dtype[np.float_]], int] = load_csv_with_labels(file_path)
                 instance_points, instance_labels = output
 
 
@@ -102,7 +104,7 @@ class InferenceEngine:
 
         return np.stack(resized_data), np.stack(resized_labels)
 
-    def load_data(self):
+    def load_data(self) -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
         dataset = self.params_dict["dataset"]
         path = self.params_dict["input"]
         
@@ -117,7 +119,7 @@ class InferenceEngine:
         else:
             raise ValueError(f"Incorrect dataset name: {dataset}")
 
-    def run(self):
+    def run(self) -> None:
         data, label = self.load_data()
         print(
         f":: Starting the inference with the following parameters --> eps: {self.best_params['eps']} - minpoints: {self.best_params['minpoints']}")
@@ -128,12 +130,10 @@ class InferenceEngine:
         f":: Completed the inference. Results are saved in {self.output_dir}")
         sys.stdout.flush()
 
-    
 
 
 
-
-def main():
+def main() -> None:
     #args = get_args()
     cwd = Path(r"C:\Users\imansaray\Desktop\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
     params_dict = {
