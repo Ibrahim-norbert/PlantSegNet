@@ -32,7 +32,6 @@ class InferenceEngine:
         self.params_dict = params_dict
         self.set_parameters()
         
-    
     @staticmethod
     def get_hparam(path):
         with open(path, "r") as f:

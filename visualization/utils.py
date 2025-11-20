@@ -1,13 +1,20 @@
+from calendar import c
+import enum
 from matplotlib.pyplot import cm
 import matplotlib.pyplot as plt
 import numpy as np
 import math
 from typing import Union, List
-def color_labels(labels) -> list[tuple[float, float, float, float]]:
-    d_colors = cm.rainbow(np.linspace(0, 1, np.unique(labels).__len__()))
+def color_labels(labels: list[int], alpha=1, colormap="rainbow") -> list[tuple[float, float, float, float]]:
+    labels = np.array(labels)
+    assert labels.ndim == 1, "Labels must be a 1D array"
+    mapper = cm.ScalarMappable(cmap=colormap)
+    d_colors = mapper.to_rgba(np.unique(labels))  # Initialize the mapper
     colors = []
-    for i, l in enumerate(labels):
-        colors.append(d_colors[int(l)])
+    for label in labels:
+        i = np.where(np.unique(labels) == label)[0][0]
+        r,g,b,a = d_colors[i]
+        colors.append((r, g, b, alpha))
 
     return colors
 
