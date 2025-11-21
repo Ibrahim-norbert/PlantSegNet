@@ -1,3 +1,4 @@
+from cProfile import label
 import open3d as o3d
 import numpy as np
 import random
@@ -241,16 +242,18 @@ def load_real_ply_with_labels_smlm(path, point_threshold=max_size_int):
         semantic_index = semantic_index[downsample_indexes]
     return points, leaf_index, semantic_index
 
-def load_csv_with_labels(path):
+def load_csv_with_labels(path, label_exists=True):
     data = np.loadtxt(path, delimiter=',', skiprows=1)
     points, is_focal_plant, ground_index, plant_index, leaf_index = [], [], [], [], []
 
 
     if data.shape[-1] < 7:
         for row in data:
-            print(row)
             points.append(np.array([row[0], row[1]]))
-            leaf_index.append(row[-1])
+            if label_exists:
+                leaf_index.append(row[-1])
+            else:
+                leaf_index.append(0)
     else:
         for row in data:
             points.append(np.array([row[1], row[2]]))
