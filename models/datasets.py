@@ -5,6 +5,7 @@ import h5py
 import random
 import os
 from plyfile import PlyData, PlyElement
+import glob
 
 
 class SorghumDataset(data.Dataset):
@@ -20,16 +21,14 @@ class SorghumDataset(data.Dataset):
 
     """
 
-    def __init__(self, folder):
+    def __init__(self, files):
         super().__init__()
-        self.folder = folder
-        self.files = os.listdir(folder)
-        self.length = len(self.files)
+        self.files = files
 
     def __getitem__(self, index):
         #index = index - 1
         plydata = None
-        with open(self.folder + self.files[index], 'rb') as f:
+        with open(self.files[index], 'rb') as f:
             plydata = PlyData.read(f)
         points = np.asarray(np.array(plydata.elements[0].data).tolist())
         leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist()).squeeze()
@@ -60,7 +59,7 @@ class SorghumDataset(data.Dataset):
         )
 
     def __len__(self):
-        return self.length
+        return self.files.__len__()
 
     def get_name(self, index):
         return self.files[index]

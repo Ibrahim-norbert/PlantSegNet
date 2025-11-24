@@ -4,10 +4,11 @@ import json
 import os
 import shutil
 import sys
+import datetime
 
 sys.path.append("..")
-sys.path.append("D:\\DevPython\\PlantSegNet\\")
-sys.path.append("D:\\DevPython\\PlantSegNet\\data\\")
+sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
+sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet\\data")
 
 #from models.nn_models import *
 from models.nn_models import SorghumPartNetInstance
@@ -63,19 +64,20 @@ def get_hparam(path):
         hparams = json.load(f)
     return hparams
 
+import torch
+
+
 
 def train():
     #args = get_args()
     #hparams = get_hparam(args.hparam)
 
     hparams = {
-        "epochs": 200,
+        "epochs": 40,
         "dgcnn_k": 100,
         "input_dim": 2,
         "batch_size": 1,
-        "train_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\train\\",
-        "val_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\val\\",
-        "test_data": "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\test\\",
+        "dataset": r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\data\SimulationData-NoNoiseSpread_2-Ibrahim-2025.11.24",
         "patience": 20,
         'batch_size': 1,
         'lr': 0.001,
@@ -90,17 +92,23 @@ def train():
         'version': "D:\\DevPython\\PlantSegNet",
         "leaf_space_threshold": 0.5,
         "debug_feature_space": True,
+
     }
     version_name = os.path.basename(os.path.normpath(hparams["version"])).replace(".json", "")
 
+    folder_name = "{:%Y.%m.%d}".format(
+        datetime.date.today()
+    )
+
     if "dataset" in hparams and (
         hparams["dataset"] == "TPN" or hparams["dataset"] == "PN"
-    ):
+    ):  
+
         chkpt_path = os.path.join(
-            hparams["output"], hparams["dataset"], "SorghumPartNetInstance"
+            hparams["output"], hparams["dataset"], "SorghumPartNetInstance", folder_name
         )
     else:
-        chkpt_path = os.path.join(hparams["output"], "SorghumPartNetInstance")
+        chkpt_path = os.path.join(hparams["output"], "SorghumPartNetInstance", folder_name)
 
     if not os.path.exists(chkpt_path):
         os.makedirs(chkpt_path)

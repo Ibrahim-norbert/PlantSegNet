@@ -15,8 +15,8 @@ from pathlib import  Path
 from typing import Any
 # from ProjectRoot import change_wd_to_project_root
 # change_wd_to_project_root()
-sys.path.append(r"C:\Users\imansaray\Desktop\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
-sys.path.append(r"C:\Users\imansaray\Desktop\repos\SuperRes-Imperial-CNRS")
+sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
+sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS")
 from data.load_raw_data import load_real_ply_with_labels_smlm, load_csv_with_labels
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics

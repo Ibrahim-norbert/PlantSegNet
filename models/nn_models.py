@@ -22,10 +22,13 @@ from models.utils import (
 from data.load_raw_data import load_real_ply_with_labels, load_real_ply_with_labels_smlm
 import matplotlib.pyplot as plt
 import torchvision
+import torch
 from sklearn.cluster import DBSCAN
 from data.utils import distinct_colors
 from models.modules import KNNSpaceRegularizer
 from sklearn.decomposition import PCA
+import glob
+from sklearn.model_selection import train_test_split
 
 class SorghumPartNetInstance(pl.LightningModule):
     def __init__(self, hparams, debug=False):
@@ -36,10 +39,23 @@ class SorghumPartNetInstance(pl.LightningModule):
         """
         super().__init__()
 
+        self.validation_step_outputs = []
+
         self.is_debug = debug
         self.hparams.update(hparams)
         self.lr_clip = 1e-5
         self.bnm_clip = 1e-2
+
+
+
+        data = glob.glob(os.path.join(hparams["dataset"], "**", "*.ply"))
+
+        seed = hparams["reproducibility_seed"]
+
+        splits = train_test_split(data, test_size=0.15, random_state=seed)
+
+        self.train_data = splits[0]
+        self.test_data  = splits[-1]
 
         MyStruct = namedtuple("args", "k")
         if "dgcnn_k" in self.hparams:
@@ -59,6 +75,9 @@ class SorghumPartNetInstance(pl.LightningModule):
             self.space_reqularizer_module = None
 
         self.save_hyperparameters()
+
+        if callable(getattr(self, "validation_epoch_end", None)):
+            exit(f"Here we have a function that should not be part of the model: " + "validation_epoch_end")
 
     def forward(self, xyz):
 
@@ -129,7 +148,7 @@ class SorghumPartNetInstance(pl.LightningModule):
 
         return [optimizer], [lr_scheduler, bnm_scheduler]
 
-    def _build_dataloader(self, ds_path, shuff=True):
+    def _build_dataloader(self, ds_path: list[str], shuff=True):
         dataset = SorghumDataset(ds_path)
 
 
@@ -139,7 +158,7 @@ class SorghumPartNetInstance(pl.LightningModule):
         return loader
 
     def train_dataloader(self):
-        return self._build_dataloader(ds_path=self.hparams["train_data"], shuff=True)
+        return self._build_dataloader(ds_path=self.train_data, shuff=True)
 
     def training_step(self, batch, batch_idx):
         if "use_normals" not in self.hparams:
@@ -186,7 +205,7 @@ class SorghumPartNetInstance(pl.LightningModule):
         return {"loss": leaf_loss, "log": tensorboard_logs}
 
     def val_dataloader(self):
-        return self._build_dataloader(ds_path=self.hparams["val_data"], shuff=False)
+        return self._build_dataloader(ds_path=self.test_data, shuff=False)
 
     def validation_step(self, batch, batch_idx):
         if "use_normals" not in self.hparams:
@@ -208,6 +227,8 @@ class SorghumPartNetInstance(pl.LightningModule):
             criterion_cluster = SpaceSimilarityLossV5(points)
 
         leaf_loss = criterion_cluster(pred_leaf_features, leaf)
+
+        self.validation_step_outputs.append(leaf_loss)
 
         leaf_metrics = LeafMetricsTraining(self.hparams["leaf_space_threshold"])
         Acc, Prec, Rec, F = leaf_metrics(pred_leaf_features, leaf)
@@ -232,50 +253,54 @@ class SorghumPartNetInstance(pl.LightningModule):
 
         return tensorboard_logs
     
-    def on_train_epoch_end(self):
-        if "debug_feature_space" in self.hparams and self.hparams['debug_feature_space'] is True:
-            device_name = "cpu"
-            device = torch.device(device_name)
+    #def on_train_epoch_end(self):
+        # if "debug_feature_space" in self.hparams and self.hparams['debug_feature_space'] is True:
+        #     device_name = "cpu"
+        #     device = torch.device(device_name)
 
-            instance_model = self.to(device)
-            instance_model.DGCNN_feature_space.device = device_name
+        #     instance_model = self.to(device)
+        #     instance_model.DGCNN_feature_space.device = device_name
             
-            file_path = "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\train\\0_smlm_dataset.ply"
-            points, instance_labels, semantic_labels = load_real_ply_with_labels_smlm(file_path)
-            points = points[semantic_labels == 1]
-            instance_labels = instance_labels[semantic_labels == 1]
+        #     file_path = "D:\\DevPython\\PlantSegNet\\datasets\\npcs\\train\\0_smlm_dataset.ply"
+        #     points, instance_labels, semantic_labels = load_real_ply_with_labels_smlm(file_path)
+        #     points = points[semantic_labels == 1]
+        #     instance_labels = instance_labels[semantic_labels == 1]
             
-            points = torch.tensor(points, dtype=torch.float64).to(device)
-            if (
-                "use_normals" in instance_model.hparams
-                and instance_model.hparams["use_normals"]
-            ):
-                pred_instance_features = instance_model(
-                    torch.unsqueeze(points, dim=0).to(device)
-                )
-            else:
-                pred_instance_features = instance_model(
-                    torch.unsqueeze(points[:, :3], dim=0).to(device).float()
-                )
+        #     points = torch.tensor(points, dtype=torch.float64).to(device)
+        #     if (
+        #         "use_normals" in instance_model.hparams
+        #         and instance_model.hparams["use_normals"]
+        #     ):
+        #         pred_instance_features = instance_model(
+        #             torch.unsqueeze(points, dim=0).to(device)
+        #         )
+        #     else:
+        #         pred_instance_features = instance_model(
+        #             torch.unsqueeze(points[:, :3], dim=0).to(device).float()
+        #         )
             
-            pca = PCA(n_components=3)
-            preds_np = pred_instance_features.detach().numpy()
-            preds_np_2D = preds_np.squeeze()
-            pca_res = pca.fit_transform(preds_np_2D)
-            labels_np = instance_labels.astype(int)
+        #     pca = PCA(n_components=3)
+        #     preds_np = pred_instance_features.detach().numpy()
+        #     preds_np_2D = preds_np.squeeze()
+        #     pca_res = pca.fit_transform(preds_np_2D)
+        #     labels_np = instance_labels.astype(int)
 
-            pca_res = pca_res.transpose()
-            pca_res = np.vstack((pca_res, labels_np))
-            pca_res = pca_res.transpose()
-            filename = "0_epoch_" + str(self.current_epoch).zfill(3) + "_pca.csv"
-            np.savetxt(os.path.join("D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/PlantSegNet/FeatureSpace/", filename), pca_res, delimiter=',', fmt='%s,%s,%s,%s', header='x,y,z,id', comments='')
+        #     pca_res = pca_res.transpose()
+        #     pca_res = np.vstack((pca_res, labels_np))
+        #     pca_res = pca_res.transpose()
+        #     filename = "0_epoch_" + str(self.current_epoch).zfill(3) + "_pca.csv"
+        #     np.savetxt(os.path.join("D:/DevPython/PlantSegNet/checkpoint/SorghumPartNetInstance/PlantSegNet/FeatureSpace/", filename), pca_res, delimiter=',', fmt='%s,%s,%s,%s', header='x,y,z,id', comments='')
             
-            instance_model = self.to(torch.device("cuda"))
-            instance_model.DGCNN_feature_space.device = "cuda"
+        #     instance_model = self.to(torch.device("cuda"))
+        #     instance_model.DGCNN_feature_space.device = "cuda"
 
-    def validation_epoch_end(self, batch):
+    def on_validation_epoch_end(self):
         if "real_data" in self.hparams:
             self.validation_real_data()
+
+        epoch_average = torch.stack(self.validation_step_outputs).mean()
+        self.log("validation_epoch_average", epoch_average)
+        self.validation_step_outputs.clear()  # free memory
 
     def validation_real_data(self):
         real_data_path = self.hparams["real_data"]
