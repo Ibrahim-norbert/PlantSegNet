@@ -5,6 +5,7 @@ import random
 from plyfile import PlyData, PlyElement
 from data.utils import *
 import sys
+import pandas as pd
 
 max_size_int = sys.maxsize * 2 + 1
 
@@ -224,94 +225,42 @@ def load_real_ply_with_labels(path, point_threshold=100000):
         semantic_index = semantic_index[downsample_indexes]
     return points, leaf_index, semantic_index
 
-def load_real_ply_with_labels_smlm(path, point_threshold=max_size_int):
+def shuffleData(inputData, point_threshold=max_size_int):
+
+    if inputData.shape[0] > point_threshold:
+        downsample_indexes = random.sample(
+            np.arange(0, inputData.shape[0]).tolist(),
+            min(point_threshold, inputData.shape[0]),
+        )
+        inputData = inputData[downsample_indexes]
+    return inputData
+
+def load_ply(path, vertex_col : str = 'vertex',
+             label_col = "leaf_index",
+             semantic_label_col = "plant_index"):
     with open(path, "rb") as f:
         plydata = PlyData.read(f)
-        points = np.asarray(np.array(plydata.elements[0].data).tolist())
-        leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist()).squeeze()
+        points = np.asarray(np.array(plydata[vertex_col].data).tolist())
+        leaf_index = np.asarray(np.array(plydata[label_col].data).tolist()).squeeze()
         semantic_index = np.asarray(
-            np.array(plydata.elements[2].data).tolist()
+            np.array(plydata[semantic_label_col].data).tolist()
         ).squeeze()
-    if points.shape[0] > point_threshold:
-        downsample_indexes = random.sample(
-            np.arange(0, points.shape[0]).tolist(),
-            min(point_threshold, points.shape[0]),
-        )
-        points = points[downsample_indexes]
-        leaf_index = leaf_index[downsample_indexes]
-        semantic_index = semantic_index[downsample_indexes]
     return points, leaf_index, semantic_index
 
-def load_csv_with_labels(path, label_exists=True):
-    data = np.loadtxt(path, delimiter=',', skiprows=1)
-    points, is_focal_plant, ground_index, plant_index, leaf_index = [], [], [], [], []
+def load_csv(path, vertex_col : str = 'vertex',
+             label_col = "leaf_index",
+             semantic_label_col = "plant_index"):
+    #particle_id,x,y,t,frame,clusterized,cluster_id
+    data = pd.read_csv(path)
 
-
-    if data.shape[-1] < 7:
-        for row in data:
-            points.append(np.array([row[0], row[1]]))
-            if label_exists:
-                leaf_index.append(row[-1])
-            else:
-                leaf_index.append(0)
-    else:
-        for row in data:
-            points.append(np.array([row[1], row[2]]))
-            is_focal_plant.append(0 if row[5] == 0 else 1)
-            ground_index.append(1 if row[5] == 0 else 0)
-            plant_index.append(0 if row[5] == 0 else 1)
-            leaf_index.append(row[6])
-    
-        is_focal_plant = np.asarray(np.array(is_focal_plant).tolist()).squeeze()
-        ground_index = np.asarray(np.array(ground_index).tolist()).squeeze()
-        plant_index = np.asarray(np.array(plant_index).tolist()).squeeze()
+    points, leaf_index, semantic_index = data[vertex_col], data[label_col], data[semantic_label_col]
             
     points = np.asarray(np.array(points).tolist()).squeeze()
     leaf_index = np.asarray(np.array(leaf_index).tolist()).squeeze()
+    semantic_index = np.asarray(np.array(semantic_index).tolist()).squeeze()
+
+    return points, leaf_index, semantic_index
 
 
-    return points, leaf_index
 
-def load_smlm_ply_with_labels(path, down_sample_n=None):
-    try:
-        with open(path, "rb") as f:
-            plydata = PlyData.read(f)
-            points = np.asarray(np.array(plydata.elements[0].data).tolist())
-            points_full = np.asarray(np.array(plydata.elements[0].data).tolist())
 
-            if down_sample_n is None:
-                down_sample_n = points_full.shape[0]
-
-            downsample_indexes = random.sample(
-                np.arange(0, points.shape[0]).tolist(),
-                min(down_sample_n, points.shape[0]),
-            )
-            points = points[downsample_indexes]
-
-            leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist())[
-                downsample_indexes
-            ].squeeze()
-
-            is_focal_plant = np.asarray(np.array(plydata.elements[1].data).tolist())[
-                downsample_indexes
-            ].squeeze()
-
-        plant_index = np.asarray(np.array(plydata.elements[2].data).tolist())[
-                    downsample_indexes
-                ].squeeze()
-        ground_index = np.asarray(np.array(plydata.elements[3].data).tolist())[
-                    downsample_indexes
-                ].squeeze()
-
-        return {
-            "points_full": points_full,
-            "points": points,
-            "is_focal_plant": is_focal_plant,
-            "leaf_index": leaf_index,
-            "plant_index": plant_index,
-            "ground_index": ground_index,
-        }
-
-    except Exception as e:
-        print(e)
-        return None

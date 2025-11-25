@@ -19,7 +19,7 @@ from models.utils import (
     LeafMetrics,
     LeafMetricsTraining,
 )
-from data.load_raw_data import load_real_ply_with_labels, load_real_ply_with_labels_smlm
+from data.load_raw_data import load_real_ply_with_labels, load_ply
 import matplotlib.pyplot as plt
 import torchvision
 import torch

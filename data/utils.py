@@ -65,6 +65,10 @@ def get_is_focal_plant(index):
     return is_focal.squeeze()
 
 
+        
+
+
+
 def create_ply_pcd_from_points_with_labels(points, labels, is_semantic=False):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)

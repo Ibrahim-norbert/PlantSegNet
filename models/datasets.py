@@ -6,6 +6,11 @@ import random
 import os
 from plyfile import PlyData, PlyElement
 import glob
+from typing import NamedTuple, Any, Tuple, List, Optional, Literal, Union
+import pandas as pd
+import sys
+sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS")
+from data import DataLoaderBioImage, Localizations
 
 
 class SorghumDataset(data.Dataset):
@@ -25,17 +30,7 @@ class SorghumDataset(data.Dataset):
         super().__init__()
         self.files = files
 
-    def __getitem__(self, index):
-        #index = index - 1
-        plydata = None
-        with open(self.files[index], 'rb') as f:
-            plydata = PlyData.read(f)
-        points = np.asarray(np.array(plydata.elements[0].data).tolist())
-        leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist()).squeeze()
-        is_focal_plant = np.asarray(np.array(plydata.elements[1].data).tolist()).squeeze()
-        plant_index = np.asarray(np.array(plydata.elements[2].data).tolist()).squeeze()
-        ground_index = np.asarray(np.array(plydata.elements[3].data).tolist()).squeeze()
-
+    def createContigunousLabels(self, plant_index, is_focal_plant, ground_index):
         # Converting arbitrary and non-contigiouse plant IDs to contigiouse list of indices
         plant_ind = list(set(list(plant_index)))
         ind = list(range(0, len(plant_ind)))
@@ -50,13 +45,22 @@ class SorghumDataset(data.Dataset):
         semantic_label[np.where((is_focal_plant == 0) & (ground_index == 1))] = 0
         semantic_label[np.where((is_focal_plant == 0) & (ground_index == 0))] = 2
 
-        return (
-            torch.from_numpy(points).float(),
-            torch.from_numpy(ground_index).float(),
-            torch.from_numpy(semantic_label).type(torch.LongTensor),
-            torch.from_numpy(plant_index).type(torch.LongTensor),
-            torch.from_numpy(leaf_index).type(torch.LongTensor),
-        )
+    def __getitem__(self, index):
+        file : str = self.files[index]
+        dataframe : Union[pd.DataFrame, PlyData] = DataLoaderBioImage.loadData(file)
+
+        points : np.ndarray = dataframe["vertex"].to_numpy()
+        # TODO: Currently, only leaf_index indicates protein label
+        semantic_label : np.ndarray = dataframe["plant_index"].to_numpy()
+        label : np.ndarray = dataframe["leaf_index"].to_numpy()
+
+        # TODO: Continue here to see where sample is uploaded to torch. Tonight, make sure you run the model.
+
+        sample = Localizations(points, label, semantic_label)
+
+        return 
+    
+
 
     def __len__(self):
         return self.files.__len__()

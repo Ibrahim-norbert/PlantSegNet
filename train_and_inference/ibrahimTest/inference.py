@@ -17,7 +17,8 @@ from typing import Any
 # change_wd_to_project_root()
 sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
 sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS")
-from data.load_raw_data import load_real_ply_with_labels_smlm, load_csv_with_labels
+from utils import get_config_yaml
+from data.load_raw_data import load_ply, load_csv
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics
 from data.utils import create_csv_smlm
@@ -52,8 +53,8 @@ class InferenceEngine:
         return output_dir
 
     def get_best_param(self, path):
-        with open(path, "r") as f:
-            return json.load(f)
+        return get_config_yaml(path)
+        
 
     def load_model(self, path) -> SorghumPartNetInstance:
         if not os.path.isfile(path):
@@ -72,21 +73,20 @@ class InferenceEngine:
             label = np.array(f[label_key])
         return data, label
 
-    def load_data_directory(self, path: str, extension : str =".csv") -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
+    def load_data_paths(self, paths: list[str]) -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
         data = []
         labels = []
         min_shape = sys.maxsize
 
-        paths = glob.glob(os.path.join(path, f"*{extension}"))
-
+        extension = os.path.splitext(paths[0])[-1]
         for file_path in paths:
 
             if extension == ".ply":
-                points, instance_labels, semantic_labels = load_real_ply_with_labels_smlm(file_path)
+                points, instance_labels, semantic_labels = load_ply(file_path)
                 instance_points = points[semantic_labels == 1]
                 instance_labels = instance_labels[semantic_labels == 1]
             elif extension == ".csv":
-                output : tuple[np.ndarray[Any, np.dtype[np.float_]], int] = load_csv_with_labels(file_path)
+                output : tuple[np.ndarray[Any, np.dtype[np.float_]], int] = load_csv(file_path)
                 instance_points, instance_labels = output
 
 
@@ -103,20 +103,29 @@ class InferenceEngine:
 
         return np.stack(resized_data), np.stack(resized_labels)
 
-    def load_data(self) -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
+    def load_data(self, extension=".csv") -> tuple[np.ndarray[Any, np.dtype[Any]], np.ndarray[Any, np.dtype[Any]]]:
+
+        
         dataset = self.params_dict["dataset"]
         path = self.params_dict["input"]
+
+        if path is not None:
+            paths = glob.glob(os.path.join(path, "**", f"*{extension}"))
+        else:
+            paths = self.model.test_data[:3]
+        
         
         if dataset == "SPNS":
             return self.load_data_h5(path, "points", "labels")
         elif dataset in ["SPNR", "SMLM"]:
-            return self.load_data_directory(path, extension=".ply")
+            return self.load_data_paths(paths)
         elif dataset == "PN":
             return self.load_data_h5(path, "pts", "label")
         elif dataset == "TPN":
             return self.load_data_h5(path, "points", "primitive_id")
         else:
             raise ValueError(f"Incorrect dataset name: {dataset}")
+
 
     def run(self) -> None:
         data, label = self.load_data()
@@ -136,11 +145,11 @@ def main() -> None:
     #args = get_args()
     cwd = Path(r"C:\Users\imansaray\Desktop\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
     params_dict = {
-        "model": cwd / Path(r"checkpoint\SorghumPartNetInstance\PlantSegNet\checkpoints\epoch_25.ckpt"),
+        "model": Path(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\checkpoint\SorghumPartNetInstance\2025.11.24\PlantSegNet\checkpoints\epoch=39-step=102000.ckpt"),
         "dataset": "SMLM",
-        "input": Path(r"C:\Users\imansaray\Desktop\repos\SuperRes-Imperial-CNRS\data\SimulationData-Ibrahim-30.10.2025\npc"),
+        "input": None,
         "output": cwd / Path(r"checkpoint\SorghumPartNetInstance\PlantSegNet\testing"),
-        "param": cwd / Path(r"checkpoint\SorghumPartNetInstance\PlantSegNet\hparam_tuning_logs\DBSCAN_best_param.json"),
+        "param": Path(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\checkpoint\SorghumPartNetInstance\2025.11.24\PlantSegNet\hparams.yaml"),
     }
 
     """

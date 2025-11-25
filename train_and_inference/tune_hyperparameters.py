@@ -13,7 +13,7 @@ sys.path.append("D:\\DevPython\\PlantSegNet\\data\\")
 
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics
-from data.load_raw_data import load_real_ply_with_labels_smlm
+from data.load_raw_data import load_ply
 
 
 from sklearn.cluster import DBSCAN
@@ -78,7 +78,7 @@ def load_data_directory(path):
 
     for p in os.listdir(path):
         file_path = os.path.join(path, p)
-        points, instance_labels, semantic_labels = load_real_ply_with_labels_smlm(file_path)
+        points, instance_labels, semantic_labels = load_ply(file_path)
         instance_points = points[semantic_labels == 1]
         instance_labels = instance_labels[semantic_labels == 1]
         data.append(instance_points)
