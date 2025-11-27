@@ -11,7 +11,7 @@ sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\Pl
 sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet\\data")
 
 #from models.nn_models import *
-from models.nn_models import SorghumPartNetInstance
+from models.nn_models import SMLMSorghumPartNetInstance
 
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers.tensorboard import TensorBoardLogger
@@ -73,7 +73,7 @@ def train():
     #hparams = get_hparam(args.hparam)
 
     hparams = {
-        "epochs": 40,
+        "epochs": 2,
         "dgcnn_k": 100,
         "input_dim": 2,
         "batch_size": 1,
@@ -92,6 +92,7 @@ def train():
         'version': "D:\\DevPython\\PlantSegNet",
         "leaf_space_threshold": 0.5,
         "debug_feature_space": True,
+        "reproducibility_seed": 43
 
     }
     version_name = os.path.basename(os.path.normpath(hparams["version"])).replace(".json", "")
@@ -144,7 +145,7 @@ def train():
             callbacks=[checkpoint_callback, early_stopping_callback],
             logger=tensorboard_callback,
         )
-        segmentor = SorghumPartNetInstance(hparams, True).cuda()
+        segmentor = SMLMSorghumPartNetInstance(hparams=hparams, debug=True).cuda()
     else:
         trainer = pl.Trainer(
             default_root_dir=chkpt_path,
@@ -154,7 +155,7 @@ def train():
             callbacks=[checkpoint_callback, early_stopping_callback],
             logger=tensorboard_callback,
         )
-        segmentor = SorghumPartNetInstance(hparams, False).cuda()
+        segmentor = SMLMSorghumPartNetInstance(hparams=hparams, debug=False).cuda()
 
     trainer.fit(segmentor, segmentor.train_dataloader(), segmentor.val_dataloader())
 

@@ -2,10 +2,12 @@ from cProfile import label
 import open3d as o3d
 import numpy as np
 import random
+from .utils import distinct_colors
 from plyfile import PlyData, PlyElement
-from data.utils import *
+# from helperfunctions.utils import *
 import sys
 import pandas as pd
+from typing import Union, List
 
 max_size_int = sys.maxsize * 2 + 1
 
@@ -247,19 +249,20 @@ def load_ply(path, vertex_col : str = 'vertex',
         ).squeeze()
     return points, leaf_index, semantic_index
 
-def load_csv(path, vertex_col : str = 'vertex',
+def load_csv(path, vertex_col : Union[str, List[str]] = 'vertex',
              label_col = "leaf_index",
              semantic_label_col = "plant_index"):
     #particle_id,x,y,t,frame,clusterized,cluster_id
     data = pd.read_csv(path)
 
     points, leaf_index, semantic_index = data[vertex_col], data[label_col], data[semantic_label_col]
-            
+    print(f"Points: {points.shape}")
     points = np.asarray(np.array(points).tolist()).squeeze()
-    leaf_index = np.asarray(np.array(leaf_index).tolist()).squeeze()
-    semantic_index = np.asarray(np.array(semantic_index).tolist()).squeeze()
+    ordered_points = points[np.argsort(points[:, 1]),:][:10000]
+    leaf_index = np.asarray(np.array(leaf_index).tolist()).squeeze()[:10000]
+    semantic_index = np.asarray(np.array(semantic_index).tolist()).squeeze()[:10000]
 
-    return points, leaf_index, semantic_index
+    return ordered_points, leaf_index, semantic_index
 
 
 

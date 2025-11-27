@@ -41,7 +41,7 @@ from data.load_raw_data import load_real_ply_with_labels
 import matplotlib.pyplot as plt
 import torchvision
 from sklearn.cluster import DBSCAN
-from data.utils import distinct_colors
+from helperfunctions.utils import distinct_colors
 from models.treepartnet_utils import get_final_clusters
 from models.modules import KNNSpaceRegularizer
 

@@ -11,7 +11,7 @@ from sklearn.cluster import DBSCAN
 sys.path.append("..")
 from models.nn_models import *
 from models.datasets import SorghumDataset
-from data.utils import create_ply_pcd_from_points_with_labels
+from helperfunctions.utils import create_ply_pcd_from_points_with_labels
 from data.load_raw_data import (
     load_pcd_plyfile,
     load_ply_file_points,

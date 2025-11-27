@@ -1,3 +1,5 @@
+import typing
+from DummyModels.utils.SampleTypes import Localizations
 from models.dgcnn import DGCNNFeatureSpace
 import torch
 import numpy as np
@@ -7,7 +9,7 @@ import torch.optim.lr_scheduler as lr_sched
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from models.datasets import (
-    SorghumDataset,
+    SorghumDataset, SMLMDataset
 )
 from collections import namedtuple
 from models.utils import (
@@ -24,7 +26,7 @@ import matplotlib.pyplot as plt
 import torchvision
 import torch
 from sklearn.cluster import DBSCAN
-from data.utils import distinct_colors
+from DummyModels.PlantSegNet.data.utils import distinct_colors
 from models.modules import KNNSpaceRegularizer
 from sklearn.decomposition import PCA
 import glob
@@ -78,6 +80,26 @@ class SorghumPartNetInstance(pl.LightningModule):
 
         if callable(getattr(self, "validation_epoch_end", None)):
             exit(f"Here we have a function that should not be part of the model: " + "validation_epoch_end")
+    
+    def forward_wo_dataloader(self, inputs: list,  device):
+
+        if not isinstance(inputs[0], Localizations):
+            inputs = [x[np.newaxis,...] for x in inputs]
+        else:
+            inputs = [np.stack(x, axis=0) for x in zip(*inputs)]
+
+        inputs = [torch.tensor(i).float().to(device, non_blocking=True) for i in inputs]
+        return self.forward(tuple(inputs))
+    
+    def pred_wtho_dataloader(self,
+                             inputs: list, device):
+   
+        model.to(device)
+        model.eval()
+        with torch.no_grad():
+            loss, output_dict = model.forward_wo_dataloader(inputs, device)
+            return loss, output_dict
+
 
     def forward(self, xyz):
 
@@ -150,7 +172,6 @@ class SorghumPartNetInstance(pl.LightningModule):
 
     def _build_dataloader(self, ds_path: list[str], shuff=True):
         dataset = SorghumDataset(ds_path)
-
 
         loader = DataLoader(
             dataset, batch_size=self.hparams["batch_size"], num_workers=4, shuffle=shuff
@@ -423,3 +444,88 @@ class SorghumPartNetInstance(pl.LightningModule):
 
         instance_model = self.to(torch.device("cuda"))
         instance_model.DGCNN_feature_space.device = "cuda"
+
+
+class SMLMSorghumPartNetInstance(SorghumPartNetInstance):
+    def __init__(self, **kwargs):
+        """
+        Parameters
+        ----------
+        hparams: hyper parameters
+        """
+        super().__init__(**kwargs)
+        self.train_data = self.train_data[:3]
+
+    def _build_dataloader(self, ds_path: list[str], shuff=True):
+        dataset = SMLMDataset(ds_path)
+
+        loader = DataLoader(
+            dataset, batch_size=self.hparams["batch_size"], num_workers=4, shuffle=shuff
+        )
+        return loader
+
+    def computeLeafLoss(self, points, pred_leaf_features, leaf):
+
+        if "loss_fn" not in self.hparams or self.hparams["loss_fn"] == "v2":
+            criterion_cluster = SpaceSimilarityLossV2()
+        elif self.hparams["loss_fn"] == "v3":
+            criterion_cluster = SpaceSimilarityLossV3(points)
+        elif self.hparams["loss_fn"] == "v4":
+            criterion_cluster = SpaceSimilarityLossV4(points)
+        elif self.hparams["loss_fn"] == "knn_space_mean":
+            criterion_cluster = SpaceSimilarityLossV2()
+        else:
+            criterion_cluster = SpaceSimilarityLossV5(points)
+
+        return criterion_cluster(pred_leaf_features, leaf)
+
+    def step(self, batch):
+        # Points and Leaf
+        points, label, semantic_label = batch
+
+        pred_label = self.forward(points)
+
+        loss = self.computeLeafLoss(points, pred_label, semantic_label)
+
+        return loss, pred_label, semantic_label
+    
+    def logTensorboard(self, loss, pred_label, semantic_label) -> dict[str, typing.Any]:
+        leaf_metrics = LeafMetricsTraining(self.hparams["leaf_space_threshold"])
+        Acc, Prec, Rec, F = leaf_metrics(pred_label, semantic_label)
+
+        tensorboard_logs = {
+            "train_leaf_loss": loss,
+            "train_leaf_accuracy": Acc,
+            "train_leaf_precision": Prec,
+            "train_leaf_recall": Rec,
+            "train_leaf_f1": F,
+        }
+
+        for k in tensorboard_logs.keys():
+            self.log(
+                k,
+                tensorboard_logs[k],
+                on_step=True,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
+        return tensorboard_logs
+
+    def training_step(self, batch, batch_idx):
+        
+
+        loss, pred_label, semantic_label = self.step(batch)
+
+        tensorboard_logs = self.logTensorboard(loss, pred_label, semantic_label)
+
+        return {"loss": loss, "log": tensorboard_logs}
+    
+
+    def validation_step(self, batch, batch_idx):
+
+        output = self.training_step(batch, batch_idx)
+
+        self.validation_step_outputs.append(output["loss"])
+
+        return output["log"]

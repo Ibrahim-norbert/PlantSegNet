@@ -12,7 +12,7 @@ sys.path.append("..")
 from data.load_raw_data import load_real_ply_with_labels
 from models.nn_models import TreePartNet
 from models.utils import LeafMetrics, AveragePrecision
-from data.utils import create_ply_pcd_from_points_with_labels
+from helperfunctions.utils import create_ply_pcd_from_points_with_labels
 
 from sklearn.cluster import DBSCAN
 

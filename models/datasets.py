@@ -7,11 +7,19 @@ import os
 from plyfile import PlyData, PlyElement
 import glob
 from typing import NamedTuple, Any, Tuple, List, Optional, Literal, Union
+import typing
 import pandas as pd
 import sys
-sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS")
-from data import DataLoaderBioImage, Localizations
+from ProjectRoot import change_wd_to_project_root
+change_wd_to_project_root()
+from pathlib import Path
+sys.path.append((Path(__file__).parent.parent.parent.parent).as_posix())
+# Has an issue with 'utils naming'
+from DummyModels.utils.SampleTypes import Localizations
+from DummyModels.utils.SampleLoader import SampleLoaderBioImage
 
+
+    
 
 class SorghumDataset(data.Dataset):
     """'
@@ -30,7 +38,26 @@ class SorghumDataset(data.Dataset):
         super().__init__()
         self.files = files
 
-    def createContigunousLabels(self, plant_index, is_focal_plant, ground_index):
+    def __getitem__(self, index):
+        #index = index - 1
+        plydata = None
+        with open(self.files[index], 'rb') as f:
+            plydata = PlyData.read(f)
+
+        # element vertex 7318
+        # element is_focal_plant 7318
+        # element plant_index 7318
+        # element ground_index 7318
+        # element leaf_index 7318
+        points = np.asarray(np.array(plydata.elements[0].data).tolist())
+        leaf_index = np.asarray(np.array(plydata.elements[4].data).tolist()).squeeze()
+        is_focal_plant = np.asarray(np.array(plydata.elements[1].data).tolist()).squeeze()
+        plant_index = np.asarray(np.array(plydata.elements[2].data).tolist()).squeeze()
+        ground_index = np.asarray(np.array(plydata.elements[3].data).tolist()).squeeze()
+
+        print(f"Give me the shape and element type of plant index and is_focal_plant before transformation: {plant_index.shape} {type(plant_index[0])}, \
+              {is_focal_plant.shape} {type(is_focal_plant[0])}")
+
         # Converting arbitrary and non-contigiouse plant IDs to contigiouse list of indices
         plant_ind = list(set(list(plant_index)))
         ind = list(range(0, len(plant_ind)))
@@ -45,28 +72,24 @@ class SorghumDataset(data.Dataset):
         semantic_label[np.where((is_focal_plant == 0) & (ground_index == 1))] = 0
         semantic_label[np.where((is_focal_plant == 0) & (ground_index == 0))] = 2
 
-    def __getitem__(self, index):
-        file : str = self.files[index]
-        dataframe : Union[pd.DataFrame, PlyData] = DataLoaderBioImage.loadData(file)
+        print(f"Give me the shape and element type of plant index and is_focal_plant after transformation: {plant_index.shape} {type(plant_index[0])}, \
+              {semantic_label.shape} {type(semantic_label[0])}")
 
-        points : np.ndarray = dataframe["vertex"].to_numpy()
-        # TODO: Currently, only leaf_index indicates protein label
-        semantic_label : np.ndarray = dataframe["plant_index"].to_numpy()
-        label : np.ndarray = dataframe["leaf_index"].to_numpy()
-
-        # TODO: Continue here to see where sample is uploaded to torch. Tonight, make sure you run the model.
-
-        sample = Localizations(points, label, semantic_label)
-
-        return 
-    
-
+        return (
+            torch.from_numpy(points).float(),
+            torch.from_numpy(ground_index).float(),
+            torch.from_numpy(semantic_label).type(torch.LongTensor),
+            torch.from_numpy(plant_index).type(torch.LongTensor),
+            torch.from_numpy(leaf_index).type(torch.LongTensor),
+        )
 
     def __len__(self):
         return self.files.__len__()
 
     def get_name(self, index):
         return self.files[index]
+    
+
 
 
 class SorghumDatasetWithNormals(data.Dataset):
@@ -379,3 +402,32 @@ class SorghumDatasetTPNFormat(data.Dataset):
             if self.is_debug:
                 self.length = 50
             return self.length
+
+class SMLMDataset(SorghumDataset):
+    """'
+    Semantic label guide:
+        * 0 --> ground
+        * 1 --> focal plant
+        * 2 --> surrounding plants
+
+    Ground label guide:
+        * 0 --> not ground
+        * 1 --> ground
+
+    """
+
+    def __init__(self, files):
+        super().__init__(files)
+        
+    def __getitem__(self, index):
+        file : str = self.files[index]
+        # TODO: We have the following error: 
+        dataframe : Union[pd.DataFrame, PlyData] = SampleLoaderBioImage.loadData(file)
+
+        points : np.ndarray = dataframe["vertex"].to_numpy()
+        # TODO: Currently, only leaf_index indicates protein label
+        semantic_label : np.ndarray = dataframe["plant_index"].to_numpy()
+        label : np.ndarray = dataframe["leaf_index"].to_numpy()
+
+        # TODO: Continue here to see where sample is uploaded to torch. Tonight, make sure you run the model.
+        return Localizations(points, label, semantic_label)

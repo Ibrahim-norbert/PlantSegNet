@@ -6,20 +6,17 @@ import random
 import json
 import torch
 import open3d as o3d
-import sys
-
-sys.path.append("..")
-sys.path.append("D:\\DevPython\\PlantSegNet\\")
-sys.path.append("D:\\DevPython\\PlantSegNet\\data\\")
-
-from data.load_raw_data import load_ply
-from models.nn_models import SorghumPartNetInstance
-from models.utils import LeafMetrics, ClusterBasedMetrics
-from data.utils import create_csv_smlm
-
 from sklearn.cluster import DBSCAN
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import sys
+
+from DummyModels.PlantSegNet.data.load_raw_data import load_ply
+from DummyModels.PlantSegNet.models.nn_models import SorghumPartNetInstance
+from DummyModels.PlantSegNet.models.utils import LeafMetrics, ClusterBasedMetrics
+from DummyModels.PlantSegNet.data.utils import create_csv_smlm
+
+
 
 
 def get_args():

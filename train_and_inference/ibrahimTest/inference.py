@@ -13,15 +13,11 @@ from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from pathlib import  Path
 from typing import Any
-# from ProjectRoot import change_wd_to_project_root
-# change_wd_to_project_root()
-sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\DummyModels\PlantSegNet")
-sys.path.append(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS")
 from utils import get_config_yaml
+sys.path.append((Path(__file__).parent.parent.parent).as_posix())
 from data.load_raw_data import load_ply, load_csv
 from models.nn_models import SorghumPartNetInstance
 from models.utils import LeafMetrics, ClusterBasedMetrics
-from data.utils import create_csv_smlm
 from train_and_inference.test_set_instance_inference import save_results, run_inference 
 import yaml
 import glob
@@ -33,12 +29,6 @@ class InferenceEngine:
         self.params_dict = params_dict
         self.set_parameters()
         
-    @staticmethod
-    def get_hparam(path):
-        with open(path, "r") as f:
-            hparams = yaml.safe_load(f)
-        return hparams
-
     def set_parameters(self) -> None:
         self.best_params = self.get_best_param(self.params_dict["param"])
         self.output_dir = self._setup_output_dir()
@@ -79,15 +69,18 @@ class InferenceEngine:
         min_shape = sys.maxsize
 
         extension = os.path.splitext(paths[0])[-1]
-        for file_path in paths:
+        for file_path in paths: 
 
             if extension == ".ply":
                 points, instance_labels, semantic_labels = load_ply(file_path)
                 instance_points = points[semantic_labels == 1]
                 instance_labels = instance_labels[semantic_labels == 1]
-            elif extension == ".csv":
-                output : tuple[np.ndarray[Any, np.dtype[np.float_]], int] = load_csv(file_path)
-                instance_points, instance_labels = output
+            elif extension == ".csv" or extension == ".xlsx":
+                #x[pix],y[pix],z[pix],intensity,frame,sigma
+                output : tuple[np.ndarray[Any, np.dtype[np.float_]], int] = load_csv(file_path, vertex_col=["x[pix]","y[pix]"],
+                                                                                     label_col="intensity",
+                                                                                     semantic_label_col="frame")
+                instance_points, instance_labels, _ = output
 
 
             data.append(instance_points)
@@ -109,12 +102,12 @@ class InferenceEngine:
         dataset = self.params_dict["dataset"]
         path = self.params_dict["input"]
 
-        if path is not None:
-            paths = glob.glob(os.path.join(path, "**", f"*{extension}"))
+        if path is not None and path.is_dir():
+            paths = glob.glob(os.path.join(path, "**", f"*{extension}"), recursive=True)
         else:
             paths = self.model.test_data[:3]
         
-        
+    
         if dataset == "SPNS":
             return self.load_data_h5(path, "points", "labels")
         elif dataset in ["SPNR", "SMLM"]:
@@ -147,8 +140,8 @@ def main() -> None:
     params_dict = {
         "model": Path(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\checkpoint\SorghumPartNetInstance\2025.11.24\PlantSegNet\checkpoints\epoch=39-step=102000.ckpt"),
         "dataset": "SMLM",
-        "input": None,
-        "output": cwd / Path(r"checkpoint\SorghumPartNetInstance\PlantSegNet\testing"),
+        "input": Path(r"C:\Users\imansaray\Desktop\input"),
+        "output": Path(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\checkpoint\SorghumPartNetInstance\2025.11.24\PlantSegNet\checkpoints"),
         "param": Path(r"C:\Users\imansaray\repos\SuperRes-Imperial-CNRS\checkpoint\SorghumPartNetInstance\2025.11.24\PlantSegNet\hparams.yaml"),
     }
 

@@ -12,7 +12,7 @@ sys.path.append("..")
 from data.load_raw_data import load_real_ply_with_labels
 from models.nn_models import SorghumPartNetInstance, SorghumPartNetSemantic, TreePartNet
 from models.utils import LeafMetrics, ClusterBasedMetrics, SemanticMetrics
-from data.utils import create_ply_pcd_from_points_with_labels
+from helperfunctions.utils import create_ply_pcd_from_points_with_labels
 
 from sklearn.cluster import DBSCAN
 

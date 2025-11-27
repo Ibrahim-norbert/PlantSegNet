@@ -11,7 +11,7 @@ sys.path.append("..")
 from models.nn_models import *
 from models.datasets import SorghumDataset
 from models.utils import LeafMetrics, SemanticMetrics
-from data.utils import create_ply_pcd_from_points_with_labels
+from helperfunctions.utils import create_ply_pcd_from_points_with_labels
 from data.load_raw_data import load_real_ply_with_labels
 from scipy.spatial.distance import cdist
 from scipy import stats

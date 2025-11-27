@@ -11,7 +11,7 @@ sys.path.append("..")
 
 from visualization.html_generator import create_html
 from models.nn_models import *
-from data.utils import create_ply_pcd_from_points_with_labels, distinct_colors
+from helperfunctions.utils import create_ply_pcd_from_points_with_labels, distinct_colors
 from data.load_raw_data import load_pcd_plyfile, load_ply_file_points
 from predict_and_visualize import *
 import argparse
